@@ -1,0 +1,37 @@
+# PostgreSQL. Versions 9.3 and up are supported.
+#
+# Install the pg driver:
+#   gem install pg
+# On macOS with Homebrew:
+#   gem install pg -- --with-pg-config=/usr/local/bin/pg_config
+# On Windows:
+#   gem install pg
+#       Choose the win32 build.
+#       Install PostgreSQL and put its /bin directory on your path.
+#
+# Configure Using Gemfile
+# gem "pg"
+#
+default: &default
+  adapter: postgresql
+  encoding: unicode
+  database: lemondb
+  pool: <%= ENV.fetch("RAILS_MAX_THREADS") { 5 } %>
+  username: postgres
+  password: R00tG4t0
+  host: localhost
+  port: 5434
+
+development:
+  <<: *default
+  #database: lemondb
+
+test:
+  <<: *default
+  #database: lemondb_test
+
+production:
+  <<: *default
+  #database: lemondb_production
+  #username: lemonevent
+  #password: <%= ENV["LEMONEVENT_DATABASE_PASSWORD"] %>

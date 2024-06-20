@@ -1,0 +1,17 @@
+# Read about fixtures at https://api.rubyonrails.org/classes/ActiveRecord/FixtureSet.html
+
+one:
+  name: MyString
+  description: MyText
+  event_date: 2024-06-18 13:00:52
+  location: MyString
+  capacity: 1
+  user: one
+
+two:
+  name: MyString
+  description: MyText
+  event_date: 2024-06-18 13:00:52
+  location: MyString
+  capacity: 1
+  user: two
