@@ -50,14 +50,14 @@ WORKDIR /rails
 COPY --from=build /usr/local/bundle /usr/local/bundle
 COPY --from=build /rails /rails
 
-# Copy master.key and set permissions
+# Copy master.key and set permissions (antes de cambiar al usuario rails)
 COPY config/master.key /rails/config/master.key
 RUN chmod 600 /rails/config/master.key
 
-# Ensure necessary directories exist
+# Ensure necessary directories exist (antes de cambiar al usuario rails)
 RUN mkdir -p /rails/db /rails/log /rails/storage /rails/tmp
 
-# Create a non-root user for running the application
+# Create a non-root user for running the application (después de las operaciones que requieren permisos elevados)
 RUN useradd -m rails && \
     chown -R rails:rails /rails/db /rails/log /rails/storage /rails/tmp
 
@@ -71,4 +71,4 @@ ENTRYPOINT ["/rails/docker-entrypoint"]
 EXPOSE 3000
 
 # Default command to start the Rails server
-CMD ["./bin/rails", "server", "-b", "0.0.0.0"]
+CMD ["bundle", "exec", "rails", "server", "-b", "0.0.0.0"]
