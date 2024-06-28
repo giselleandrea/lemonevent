@@ -1,28 +1,34 @@
 # syntax=docker/dockerfile:1
 ARG RUBY_VERSION=3.1.4
+
+# Stage 1: Base stage for building gems
 FROM ruby:$RUBY_VERSION-slim as base
 
-# Rails app lives here
+# Set working directory
 WORKDIR /rails
 
-# Set production environment
-ENV RAILS_ENV="production" \
-    BUNDLE_DEPLOYMENT="1" \
-    BUNDLE_PATH="/usr/local/bundle" \
-    BUNDLE_WITHOUT="development"
+# Install OS-level dependencies
+RUN apt-get update -qq && \
+    apt-get install --no-install-recommends -y \
+        build-essential \
+        git \
+        libpq-dev \
+        libvips \
+        pkg-config \
+        curl \
+        postgresql-client \
+    && rm -rf /var/lib/apt/lists/*
 
-# Throw-away build stage to reduce size of final image
+# Stage 2: Build stage for installing gems
 FROM base as build
 
-# Install packages needed to build gems
-RUN apt-get update -qq && \
-    apt-get install --no-install-recommends -y build-essential git libpq-dev libvips pkg-config
+# Set environment variables for Bundler
+ENV BUNDLE_DEPLOYMENT=true \
+    BUNDLE_WITHOUT='development:test'
 
-# Install application gems
+# Copy and install application gems
 COPY Gemfile Gemfile.lock ./
-RUN bundle install && \
-    rm -rf ~/.bundle/ "${BUNDLE_PATH}"/ruby/*/cache "${BUNDLE_PATH}"/ruby/*/bundler/gems/*/.git && \
-    bundle exec bootsnap precompile --gemfile
+RUN bundle install --jobs "$(nproc)" --retry 5 --path=/usr/local/bundle
 
 # Copy application code
 COPY . .
@@ -30,33 +36,39 @@ COPY . .
 # Precompile bootsnap code for faster boot times
 RUN bundle exec bootsnap precompile app/ lib/
 
-# Final stage for app image
+# Copy docker-entrypoint script
+COPY docker-entrypoint /rails/docker-entrypoint
+RUN chmod +x /rails/docker-entrypoint
+
+# Stage 3: Final stage for app image
 FROM base
 
-# Install packages needed for deployment
-RUN apt-get update -qq && \
-    apt-get install --no-install-recommends -y curl libvips postgresql-client && \
-    rm -rf /var/lib/apt/lists /var/cache/apt/archives
+# Set working directory
+WORKDIR /rails
 
-# Copy built artifacts: gems, application
+# Copy built artifacts: gems, application code
 COPY --from=build /usr/local/bundle /usr/local/bundle
 COPY --from=build /rails /rails
 
-# Copy docker-entrypoint script
-COPY docker-entrypoint.sh /rails/bin/docker-entrypoint.sh
-RUN chmod +x /rails/bin/docker-entrypoint.sh
+# Copy master.key and set permissions
+COPY config/master.key /rails/config/master.key
+RUN chmod 600 /rails/config/master.key
 
 # Ensure necessary directories exist
 RUN mkdir -p /rails/db /rails/log /rails/storage /rails/tmp
 
-# Run and own only the runtime files as a non-root user for security
-RUN useradd rails --create-home --shell /bin/bash && \
+# Create a non-root user for running the application
+RUN useradd -m rails && \
     chown -R rails:rails /rails/db /rails/log /rails/storage /rails/tmp
-USER rails:rails
 
-# Entrypoint prepares the database.
-ENTRYPOINT ["/rails/bin/docker-entrypoint.sh"]
+# Switch to the non-root user
+USER rails
 
-# Start the server by default, this can be overwritten at runtime
+# Entrypoint prepares the database and starts the server
+ENTRYPOINT ["/rails/docker-entrypoint"]
+
+# Expose port 3000
 EXPOSE 3000
+
+# Default command to start the Rails server
 CMD ["./bin/rails", "server", "-b", "0.0.0.0"]
