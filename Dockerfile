@@ -1,8 +1,5 @@
-# syntax=docker/dockerfile:1
-ARG RUBY_VERSION=3.1.4
-
 # Stage 1: Base stage for building gems
-FROM ruby:$RUBY_VERSION-slim as base
+FROM ruby:3.1.4-slim as base
 
 # Set working directory
 WORKDIR /rails
@@ -40,6 +37,9 @@ RUN bundle exec bootsnap precompile app/ lib/
 COPY docker-entrypoint /rails/docker-entrypoint
 RUN chmod +x /rails/docker-entrypoint
 
+# Verify if the file is copied correctly
+RUN ls -l /rails/docker-entrypoint
+
 # Stage 3: Final stage for app image
 FROM base
 
@@ -50,16 +50,19 @@ WORKDIR /rails
 COPY --from=build /usr/local/bundle /usr/local/bundle
 COPY --from=build /rails /rails
 
-# Copy master.key and set permissions (antes de cambiar al usuario rails)
-COPY config/master.key /rails/config/master.key
+# Copy master.key and set permissions (before changing to the rails user)
+COPY ../config/master.key /rails/config/master.key
 RUN chmod 600 /rails/config/master.key
 
-# Ensure necessary directories exist (antes de cambiar al usuario rails)
+# Ensure necessary directories exist (before changing to the rails user)
 RUN mkdir -p /rails/db /rails/log /rails/storage /rails/tmp
 
-# Create a non-root user for running the application (después de las operaciones que requieren permisos elevados)
+# Create a non-root user for running the application (after privileged operations)
 RUN useradd -m rails && \
     chown -R rails:rails /rails/db /rails/log /rails/storage /rails/tmp
+
+# Verify the existence and permissions of the docker-entrypoint file
+RUN ls -l /rails/docker-entrypoint
 
 # Switch to the non-root user
 USER rails
@@ -71,4 +74,4 @@ ENTRYPOINT ["/rails/docker-entrypoint"]
 EXPOSE 3000
 
 # Default command to start the Rails server
-CMD ["bundle", "exec", "rails", "server", "-b", "0.0.0.0"]
+CMD ["./bin/rails", "server", "-b", "0.0.0.0"]

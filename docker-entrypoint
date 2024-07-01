@@ -1,8 +1,5 @@
-#!/bin/bash
+#!/bin/sh
 set -e
-
-# Asegurar permisos del archivo master.key
-chmod 600 /rails/config/master.key
 
 # Eliminar un archivo de PID de servidor si existe
 rm -f /rails/tmp/pids/server.pid
